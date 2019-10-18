@@ -89,3 +89,10 @@ Below we use the [`block`](https://docs.ansible.com/ansible/latest/user_guide/pl
 * `README.md`: information file (this file)
 * `roles/`: directory for ansible roles
 * `tests/`: tests for the collection's content
+
+### Planned Modules
+
+* `space_device`: managing device state (discovering, removing)
+* `address_object`: managing shared address objects including variable, groups
+* `nat_policy`
+* `nat_rule`
