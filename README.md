@@ -3,7 +3,7 @@
 ## Tech Preview
 
 This is the [Ansible
-Collection](https://docs.ansible.com/ansible/devel/collections_tech_preview.html)
+Collection](https://www.ansible.com/resources/webinars-training/collections-future-of-how-ansible-content-is-handled)
 provided by the [Juniper Network Automation
 Team](https://github.com/juniper) for automating actions in [Junos Space](https://www.juniper.net/us/en/products-services/network-management/junos-space-platform/).
 
