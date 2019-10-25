@@ -19,7 +19,7 @@ An example for using this collection to manage a log source with [Junos Space](h
 `inventory.ini` (Note the password should be managed by a [Vault](https://docs.ansible.com/ansible/latest/user_guide/vault.html) for a production environment.
 ```
 [space]
-space01 ansible_host=66.129.235.5
+space01 ansible_host=192.168.30.1
 
 [space:vars]
 ansible_network_os=juniper.space.space
