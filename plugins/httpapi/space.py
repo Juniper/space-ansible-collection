@@ -58,16 +58,17 @@ class HttpApi(HttpApiBase):
         else:
             raise ConnectionError('Username and password are required for login')
     
-    def send_request(self, request_method, path, payload=None, headers=None, **kwargs):
+    def send_request(self, request_method, path, payload=None, headers=None, expect_json=None, **kwargs):
         headers = headers if headers else BASE_HEADERS
-        data = json.dumps(payload) if payload else '{}'
 
         try:
             self._display_request(request_method)
             response, response_data = self.connection.send(path, payload, method=request_method, headers=headers, **kwargs)
             value = self._get_response_value(response_data)
-
-            return response.getcode(), self._response_to_json(value)
+            if expect_json:
+                return response.getcode(), self._response_to_json(value)
+            else:
+                return response.getcode(), value
         except AnsibleConnectionFailure as e:
             if to_text('401') in to_text(e):
                 return 401, 'Authentication failure'
@@ -85,7 +86,7 @@ class HttpApi(HttpApiBase):
 
     def _response_to_json(self, response_text):
         try:
-            return json.loads(response_text) if response_text else {}
+            return json.loads(response_text) if response_text else {} 
         # JSONDecodeError only available on Python 3.5+
         except ValueError:
             raise ConnectionError('Invalid JSON response: %s' % response_text)

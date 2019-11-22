@@ -116,7 +116,7 @@ def main():
 
     if module.params["id"]:
         space_request.headers = {"Accept": "application/vnd.net.juniper.space.device-management.device+json;version=1"}
-        devices =  space_request.get_by_path(
+        code, devices =  space_request.get_by_path(
             "/api/space/device-management/devices/{0}".format(module.params['id'])
         )
     else:
@@ -147,15 +147,21 @@ def main():
             query_strs.append(quote("attribute-column-0 eq '{0}'".format(module.params["attribute_column_0"])))
 
         if query_strs:
-            devices = space_request.get_by_path(
+            code, response = space_request.get_by_path(
                 "/api/space/device-management/devices?filter=({0})".format("%20and%20".join(query_strs))
-            )['devices']
+            )
+            devices = response['devices']
         else:
-            devices = space_request.get_by_path("/api/space/device-management/devices")['devices']
+            code, response = space_request.get_by_path("/api/space/device-management/devices")
+            devices = response['devices']
     
     # Ensure we always return the device key as a list
-    if not isinstance(devices['device'], list):
-      devices['device'] = [devices['device']]
+    try:
+      if not isinstance(devices['device'], list):
+        devices['device'] = [devices['device']]
+    except KeyError:
+      #no devices returned
+      pass
     
     module.exit_json(devices=devices, changed=False)
 
