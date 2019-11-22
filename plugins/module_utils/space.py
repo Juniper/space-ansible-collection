@@ -13,7 +13,6 @@ from ansible.module_utils._text import to_text
 
 import json
 
-
 def find_dict_in_list(some_list, key, value):
     text_type = False
     try:
@@ -37,14 +36,14 @@ class SpaceRequest(object):
         self.module = module
         self.connection = Connection(self.module._socket_path)
         self.headers = headers
+        self.expect_json = True
 
-    def _httpapi_error_handle(self, method, uri, payload=None):
+    def _httpapi_error_handle(self, method, uri, payload=None, **kwargs):
         # FIXME - make use of handle_httperror(self, exception) where applicable
         #   https://docs.ansible.com/ansible/latest/network/dev_guide/developing_plugins_network.html#developing-plugins-httpapi
-
         try:
             code, response = self.connection.send_request(
-                method, uri, payload=payload, headers=self.headers
+                method, uri, payload=payload, headers=self.headers, expect_json = self.expect_json
             )
         except ConnectionError as e:
             self.module.fail_json(msg="connection error occurred: {0}".format(e))
@@ -52,16 +51,24 @@ class SpaceRequest(object):
             self.module.fail_json(msg="certificate error occurred: {0}".format(e))
         except ValueError as e:
             self.module.fail_json(msg="certificate not found: {0}".format(e))
-
-        if code == 404:
+        
+        if 'status_codes' in kwargs:
+            if code in kwargs['status_codes']:
+                return code, response
+            else:
+                self.module.fail_json(
+                    msg="space httpapi returned response code {0} with message {1}".format(
+                        code, response
+                    )
+                )
+        elif code == 404:
             if (
                 to_text("Object not found") in to_text(response)
                 or to_text("Could not find object") in to_text(response)
                 or to_text("No offense was found") in to_text(response)
             ):
                 return {}
-
-        if code == 409:
+        elif code == 409:
             pass
         elif not (code >= 200 and code < 300):
             self.module.fail_json(
@@ -70,7 +77,7 @@ class SpaceRequest(object):
                 )
             )
 
-        return response
+        return code, response
 
     def get(self, url, **kwargs):
         return self._httpapi_error_handle("GET", url, **kwargs)
@@ -110,11 +117,11 @@ class SpaceRequest(object):
     def get_urlencoded_data(self):
         return urlencode(self.get_data())
 
-    def get_by_path(self, rest_path):
+    def get_by_path(self, rest_path, **kwargs):
         """
         GET attributes by rest path
         """
-        return self.get("/{0}".format(rest_path))
+        return self.get("/{0}".format(rest_path), **kwargs)
 
     def delete_by_path(self, rest_path):
         """
@@ -123,7 +130,7 @@ class SpaceRequest(object):
 
         return self.delete("/{0}".format(rest_path))
 
-    def post_by_path(self, rest_path, data=None):
+    def post_by_path(self, rest_path, data=None, **kwargs):
         """
         POST with data to path
         """
@@ -132,6 +139,6 @@ class SpaceRequest(object):
         elif data == False:
             # Because for some reason some REST API endpoint use the
             # query string to modify state
-            return self.post("/{0}".format(rest_path))
-        return self.post("/{0}".format(rest_path), payload=data)
+            return self.post("/{0}".format(rest_path), **kwargs)
+        return self.post("/{0}".format(rest_path), payload=data, **kwargs)
 
