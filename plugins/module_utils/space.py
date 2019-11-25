@@ -53,8 +53,8 @@ class SpaceRequest(object):
             self.module.fail_json(msg="certificate not found: {0}".format(e))
         
         if 'status_codes' in kwargs:
-            status_codes = kwargs['status_codes'].split(',')
-            if code in status_codes:
+            status_codes = kwargs['status_codes'].replace(' ', '').split(',')
+            if to_text(code) in status_codes:
                 return code, response
             else:
                 self.module.fail_json(
@@ -62,13 +62,6 @@ class SpaceRequest(object):
                         code, response
                     )
                 )
-        elif code == 404:
-            if (
-                to_text("Object not found") in to_text(response)
-                or to_text("Could not find object") in to_text(response)
-                or to_text("No offense was found") in to_text(response)
-            ):
-                return {}
         elif code == 409:
             pass
         elif not (code >= 200 and code < 300):
