@@ -53,7 +53,8 @@ class SpaceRequest(object):
             self.module.fail_json(msg="certificate not found: {0}".format(e))
         
         if 'status_codes' in kwargs:
-            if code in kwargs['status_codes']:
+            status_codes = kwargs['status_codes'].split(',')
+            if code in status_codes:
                 return code, response
             else:
                 self.module.fail_json(
