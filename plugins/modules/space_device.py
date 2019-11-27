@@ -42,6 +42,11 @@ options:
       - Password to authenticate to the device
     required: true
     type: str
+  use_ping:
+    description:
+      - Use ping to monitor the device reachability
+    required: false
+    type: bool
   snmp_comunity:
     description:
       - SNMP community string. If provided the device must be reachable via SNMP or discovery will fail
@@ -71,11 +76,12 @@ from ansible.module_utils.urls import Request
 from ansible.module_utils.six.moves.urllib.parse import quote
 from ansible.module_utils.six.moves.urllib.error import HTTPError
 from ansible_collections.juniper.space.plugins.module_utils.space import SpaceRequest
+from ansible_collections.juniper.space.plugins.module_utils.space_device_lib import SpaceDeviceMgr
 
 import copy
 import json
 
-#### ADD IP CHANGE functionality
+#### ADD CHANGE functionality
 
 def main():
 
@@ -85,6 +91,8 @@ def main():
         ip_address=dict(required=False, type="str"),
         username=dict(required=False, type="str", no_log=True),
         password=dict(required=False, type="str", no_log=True),
+        use_ping=dict(required=False, type="bool", default=True),
+        use_snmp=dict(required=False, type="bool", default=False),
         snmp_community=dict(required=False, type="str"),
         queue=dict(required=False, type="str")
     )
@@ -94,22 +102,73 @@ def main():
     space_request = SpaceRequest(
         module,
     )
-    if to_text(module.params["state"]) == "present":
-      pass
-    elif to_text(module.params["state"]) == "absent":
-        space_request.headers = {"Accept": "application/vnd.net.juniper.space.device-management.device+json;version=1"}
-        space_request.expect_json = False
+    space_device_manager = SpaceDeviceMgr(
+        module,
+    )
 
-        code, response =  space_request.delete(
-            "/api/space/device-management/devices/{0}".format(module.params['id']),
-            status_codes="202,404"
-        )
-        if code == 202:
-          module.exit_json(return_code=code, return_body=response, changed=True)
-        elif code == 404:
-          module.exit_json(return_code=code, return_body=response, changed=False)    
+    # Gather device details to determine if device exists
+    if module.params["id"]:
+        device = space_device_manager.get_device_by_id(module.params["id"])
+    elif module.params["ip_address"]:
+        #FIXME: Use get_device instead so we get full device details
+        device = space_device_manager.get_devices(ip_address=module.params["ip_address"])
+    else:
+        module.fail_json(msg='You must provide either an id or ip_address')
     
-    module.exit_json(devices=devices, changed=False)
+    if to_text(module.params["state"]) == "present":
+        if device:
+            #FIXME: Add logic for changing an existing device
+            module.exit_json(msg='Device already present', device=device[0], changed=False)
+        #check params
+        else:
+            if not module.params["ip_address"]:
+                module.fail_json(msg='You must provide either an ip_address')
+            elif not module.params["username"]:
+                module.fail_json(msg='You must provide a username')
+            elif not module.params["password"]:
+                module.fail_json(msg='You must provide either a password')
+        
+        # Create the device
+        space_request.headers = {
+            "Accept": "application/vnd.net.juniper.space.device-management.discover-devices+json;version=1",
+            "Content-Type": "application/vnd.net.juniper.space.device-management.discover-devices+json;version=1;charset=UTF-8"
+        }
+        body = {
+            "systemDiscoveryRule":{
+                "ipAddressDiscoveryTarget": { "exclude":"false","ipAddress":"{}".format(module.params["ip_address"]) },
+                "usePing":"{}".format(module.params["use_ping"]),
+                "manageDiscoveredSystemsFlag":"true",
+                "sshCredential": {
+                    "userName":"{}".format(module.params["username"]),
+                    "password":"{}".format(module.params["password"])
+                },
+                "tagNewlyManagedDiscoveredSystemsFlag":"false"
+            }
+        }
+
+        if module.params["snmp_community"]:
+            body['systemDiscoveryRule']['snmpV2CSetting'] = { "communityName":"{}".format(module.params["snmp_community"]) }
+            body['systemDiscoveryRule']['useSnmp'] = "True"
+
+        code, response = space_request.post("/api/space/device-management/discover-devices", payload=json.dumps(body))
+        
+        #FIXME: Need module_utils/space_job.py to monitor job status and then chen check device status after job completes
+        module.exit_json(body=body, code=code, task_id=response['task'], changed=True)
+
+
+    elif module.params["state"] == "absent":
+        if not device:
+            module.exit_json(msg="Device already absent", device=device, changed=False)
+        else:
+            space_request.headers = {"Accept": "application/vnd.net.juniper.space.device-management.device+json;version=1"}
+            space_request.expect_json = False
+
+            code, response =  space_request.delete(
+                "/api/space/device-management/devices/{0}".format(module.params['id']), #FIXME- use device ID from device object rather than params
+                status_codes="202"
+            )
+            if code == 202:
+                module.exit_json(task_id=response['task'], changed=True)
 
 if __name__ == "__main__":
     main()
