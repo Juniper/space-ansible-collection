@@ -72,7 +72,6 @@ def main():
     )
 
     space_request.headers = {"Content-Type": "application/hornetq.jms.queue+xml"}
-    space_request.expect_json = False
     queue_name = to_text(module.params["name"])
 
     if to_text(module.params["state"]) == "present":

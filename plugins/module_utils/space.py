@@ -36,14 +36,13 @@ class SpaceRequest(object):
         self.module = module
         self.connection = Connection(self.module._socket_path)
         self.headers = headers
-        self.expect_json = True
 
     def _httpapi_error_handle(self, method, uri, payload=None, **kwargs):
         # FIXME - make use of handle_httperror(self, exception) where applicable
         #   https://docs.ansible.com/ansible/latest/network/dev_guide/developing_plugins_network.html#developing-plugins-httpapi
         try:
             code, response = self.connection.send_request(
-                method, uri, payload=payload, headers=self.headers, expect_json = self.expect_json
+                method, uri, payload=payload, headers=self.headers
             )
         except ConnectionError as e:
             self.module.fail_json(msg="connection error occurred: {0}".format(e))

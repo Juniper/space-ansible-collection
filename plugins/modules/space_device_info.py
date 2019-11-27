@@ -88,7 +88,7 @@ from ansible.module_utils._text import to_text
 from ansible.module_utils.urls import Request
 from ansible.module_utils.six.moves.urllib.parse import quote
 from ansible.module_utils.six.moves.urllib.error import HTTPError
-from ansible_collections.juniper.space.plugins.module_utils.space import SpaceRequest
+from ansible_collections.juniper.space.plugins.module_utils.space_device_lib import SpaceDeviceMgr
 
 import copy
 import json
@@ -105,65 +105,32 @@ def main():
         platform=dict(required=False, type="str"),
         managedstatus=dict(required=False, type="str"),
         connectionstatus=dict(required=False, type="str"),
-        attribute_column_0=dict(required=False, type="str")
+        attribute_column_0=dict(required=False, type="str"),
+        ip_address=dict(required=False, type="str")
     )
 
     module = AnsibleModule(argument_spec=argspec, supports_check_mode=True)
 
-    space_request = SpaceRequest(
+    space_device_manager = SpaceDeviceMgr(
         module,
     )
 
     if module.params["id"]:
-        space_request.headers = {"Accept": "application/vnd.net.juniper.space.device-management.device+json;version=1"}
-        code, devices =  space_request.get_by_path(
-            "/api/space/device-management/devices/{0}".format(module.params['id'])
-        )
+      devices = space_device_manager.get_device_by_id(module.params["id"])
+      module.exit_json(devices=devices, changed=False)
     else:
-        query_strs = []
-        space_request.headers = {"Accept": "application/vnd.net.juniper.space.device-management.devices+json;version=2"}
-        if module.params["name"]:
-            query_strs.append(quote("name eq '{0}'".format(to_text(module.params["name"]))))
-
-        if module.params["osversion"]:
-            query_strs.append(quote("OSversion eq '{0}'".format(module.params["osversion"])))
-
-        if module.params["devicefamily"]:
-            query_strs.append(quote("deviceFamily eq '{0}'".format(module.params["devicefamily"])))
-
-        if module.params["serialnumber"]:
-            query_strs.append(quote("SerialNumber eq '{0}'".format(module.params["serialnumber"])))
-
-        if module.params["platform"]:
-            query_strs.append(quote("platform eq '{0}'".format(module.params["platform"])))
-
-        if module.params["managedstatus"]:
-            query_strs.append(quote("managedStatus eq '{0}'".format(module.params["managedstatus"])))
-
-        if module.params["connectionstatus"]:
-            query_strs.append(quote("connectionStatus eq '{0}'".format(module.params["connectionstatus"])))
-
-        if module.params["attribute_column_0"]:
-            query_strs.append(quote("attribute-column-0 eq '{0}'".format(module.params["attribute_column_0"])))
-
-        if query_strs:
-            code, response = space_request.get_by_path(
-                "/api/space/device-management/devices?filter=({0})".format("%20and%20".join(query_strs))
-            )
-            devices = response['devices']
-        else:
-            code, response = space_request.get_by_path("/api/space/device-management/devices")
-            devices = response['devices']
-    
-    # Ensure we always return the device key as a list
-    try:
-      if not isinstance(devices['device'], list):
-        devices['device'] = [devices['device']]
-    except KeyError:
-      #no devices returned
-      pass
-    
-    module.exit_json(devices=devices, changed=False)
+      devices = space_device_manager.get_devices(
+        name=module.params["name"],
+        osversion=module.params["osversion"],
+        devicefamily=module.params["devicefamily"],
+        serialnumber=module.params["serialnumber"],
+        platform=module.params["platform"],
+        managedstatus=module.params["managedstatus"],
+        connectionstatus=module.params["connectionstatus"],
+        attribute_column_0=module.params["attribute_column_0"],
+        ip_address=module.params["ip_address"]
+        )
+      module.exit_json(devices=devices, changed=False)
 
 if __name__ == "__main__":
     main()
