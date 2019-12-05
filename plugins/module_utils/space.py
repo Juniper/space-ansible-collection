@@ -10,6 +10,7 @@ from ansible.module_utils.connection import ConnectionError
 from ansible.module_utils.six.moves.urllib.error import HTTPError
 from ansible.module_utils.connection import Connection
 from ansible.module_utils._text import to_text
+from time import sleep
 
 import json
 
@@ -134,4 +135,25 @@ class SpaceRequest(object):
             # query string to modify state
             return self.post("/{0}".format(rest_path), **kwargs)
         return self.post("/{0}".format(rest_path), payload=data, **kwargs)
+    
+    def check_job(self, task_id=None, retries=5, delay=10):
+        """
+        Shared method for checking Space job status
+        """
+        self.headers = {"Accept": "application/vnd.net.juniper.space.job-management.job+json;version=3"}
+        self.module.log("Trying {} time(s)".format(retries))
+        while retries > 0:
+            self.module.log("Sleeping for {} seconds".format(delay))
+            sleep(delay)
+            code, response = self.get_by_path("/api/space/job-management/jobs/{}".format(task_id))
+
+            if response["job"]["job-state"] == "DONE":
+                return "DONE"
+            elif response["job"]["job-state"] == "FAILURE":
+                return "FAILURE"
+            else:
+                self.module.log("Job is still running")
+                retries = retries - 1
+        
+        return response["job"]["job-state"]
 

@@ -110,7 +110,7 @@ def main():
     if module.params["id"]:
         device = space_device_manager.get_device_by_id(module.params["id"])
     elif module.params["ip_address"]:
-        #FIXME: Use get_device instead so we get full device details
+        #FIXME: Use get_device instead so we get full device details when we implment changing existing device
         device = space_device_manager.get_devices(ip_address=module.params["ip_address"])
     else:
         module.fail_json(msg='You must provide either an id or ip_address')
@@ -153,7 +153,14 @@ def main():
         code, response = space_request.post("/api/space/device-management/discover-devices", payload=json.dumps(body))
         
         #FIXME: Need module_utils/space_job.py to monitor job status and then chen check device status after job completes
-        module.exit_json(body=body, code=code, task_id=response['task'], changed=True)
+        task_id = response['task']['id']
+        job_status = space_request.check_job(task_id=task_id)
+
+        if job_status == "DONE":
+            device = space_device_manager.get_devices(ip_address=module.params["ip_address"])
+            module.exit_json(device=device, task_id=task_id, job_status=job_status, changed=True)
+        else:
+            module.fail_json(task_id=task_id, job_status=job_status, changed=False)
 
 
     elif module.params["state"] == "absent":
@@ -164,11 +171,11 @@ def main():
             space_request.expect_json = False
 
             code, response =  space_request.delete(
-                "/api/space/device-management/devices/{0}".format(module.params['id']), #FIXME- use device ID from device object rather than params
+                "/api/space/device-management/devices/{0}".format(device[0]["device-id"]), #FIXME- use device ID from device object rather than params
                 status_codes="202"
             )
             if code == 202:
-                module.exit_json(task_id=response['task'], changed=True)
+                module.exit_json(task_id=response['task']['id'], changed=True)
 
 if __name__ == "__main__":
     main()
