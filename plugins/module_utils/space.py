@@ -10,6 +10,7 @@ from ansible.module_utils.connection import ConnectionError
 from ansible.module_utils.six.moves.urllib.error import HTTPError
 from ansible.module_utils.connection import Connection
 from ansible.module_utils._text import to_text
+from time import sleep
 
 import json
 
@@ -36,14 +37,13 @@ class SpaceRequest(object):
         self.module = module
         self.connection = Connection(self.module._socket_path)
         self.headers = headers
-        self.expect_json = True
 
     def _httpapi_error_handle(self, method, uri, payload=None, **kwargs):
         # FIXME - make use of handle_httperror(self, exception) where applicable
         #   https://docs.ansible.com/ansible/latest/network/dev_guide/developing_plugins_network.html#developing-plugins-httpapi
         try:
             code, response = self.connection.send_request(
-                method, uri, payload=payload, headers=self.headers, expect_json = self.expect_json
+                method, uri, payload=payload, headers=self.headers
             )
         except ConnectionError as e:
             self.module.fail_json(msg="connection error occurred: {0}".format(e))
@@ -53,7 +53,8 @@ class SpaceRequest(object):
             self.module.fail_json(msg="certificate not found: {0}".format(e))
         
         if 'status_codes' in kwargs:
-            if code in kwargs['status_codes']:
+            status_codes = kwargs['status_codes'].replace(' ', '').split(',')
+            if to_text(code) in status_codes:
                 return code, response
             else:
                 self.module.fail_json(
@@ -61,13 +62,6 @@ class SpaceRequest(object):
                         code, response
                     )
                 )
-        elif code == 404:
-            if (
-                to_text("Object not found") in to_text(response)
-                or to_text("Could not find object") in to_text(response)
-                or to_text("No offense was found") in to_text(response)
-            ):
-                return {}
         elif code == 409:
             pass
         elif not (code >= 200 and code < 300):
@@ -141,4 +135,25 @@ class SpaceRequest(object):
             # query string to modify state
             return self.post("/{0}".format(rest_path), **kwargs)
         return self.post("/{0}".format(rest_path), payload=data, **kwargs)
+    
+    def check_job(self, task_id=None, retries=5, delay=10):
+        """
+        Shared method for checking Space job status
+        """
+        self.headers = {"Accept": "application/vnd.net.juniper.space.job-management.job+json;version=3"}
+        self.module.log("Trying {} time(s)".format(retries))
+        while retries > 0:
+            self.module.log("Sleeping for {} seconds".format(delay))
+            sleep(delay)
+            code, response = self.get_by_path("/api/space/job-management/jobs/{}".format(task_id))
+
+            if response["job"]["job-state"] == "DONE":
+                return "DONE"
+            elif response["job"]["job-state"] == "FAILURE":
+                return "FAILURE"
+            else:
+                self.module.log("Job is still running")
+                retries = retries - 1
+        
+        return response["job"]["job-state"]
 

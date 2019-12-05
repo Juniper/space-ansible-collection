@@ -72,12 +72,11 @@ def main():
     )
 
     space_request.headers = {"Content-Type": "application/hornetq.jms.queue+xml"}
-    space_request.expect_json = False
     queue_name = to_text(module.params["name"])
 
     if to_text(module.params["state"]) == "present":
       body = '<queue name="{0}"><durable>false</durable></queue>'.format(queue_name)   
-      code, response = space_request.post("/api/hornet-q/queues", payload=body, status_codes=[201, 412])
+      code, response = space_request.post("/api/hornet-q/queues", payload=body, status_codes='201, 412')
       
       if code == 201:
         module.exit_json(return_code=code, return_body=response, changed=True)
@@ -86,7 +85,7 @@ def main():
     elif to_text(module.params["state"]) == "absent":
       code, response = space_request.delete(
         '/api/hornet-q/queues/jms.queue.{0}'.format(queue_name),
-        status_codes=[204, 405]
+        status_codes='204, 405'
         )
       if code == 204:
         module.exit_json(return_code=code, return_body=response, changed=True)
