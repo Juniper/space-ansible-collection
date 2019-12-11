@@ -219,4 +219,7 @@ class SDAddressMgr(object):
         except KeyError:
             return None #no addresses exist
         
-        return addresses['address']
+        if len(addresses['address']) == 0:
+            return None
+        else:
+            return addresses['address']

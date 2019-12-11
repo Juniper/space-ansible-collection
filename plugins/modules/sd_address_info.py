@@ -114,7 +114,7 @@ def main():
     else:
         if module.params["name"] or module.params["ip_address"]:
             # call get_address for greater detail and single element list
-            addresses = sd_address_manager.get_address(
+            addresses = sd_address_manager.get_addresses(
                 name=module.params["name"],
                 ip_address=module.params["ip_address"]
             )
