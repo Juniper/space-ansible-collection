@@ -152,7 +152,6 @@ def main():
 
         code, response = space_request.post("/api/space/device-management/discover-devices", payload=json.dumps(body))
         
-        #FIXME: Need module_utils/space_job.py to monitor job status and then chen check device status after job completes
         task_id = response['task']['id']
         job_status = space_request.check_job(task_id=task_id)
 
@@ -171,7 +170,7 @@ def main():
             space_request.expect_json = False
 
             code, response =  space_request.delete(
-                "/api/space/device-management/devices/{0}".format(device[0]["device-id"]), #FIXME- use device ID from device object rather than params
+                "/api/space/device-management/devices/{0}".format(device[0]["device-id"]),
                 status_codes="202"
             )
             if code == 202:

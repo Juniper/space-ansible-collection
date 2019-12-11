@@ -5,7 +5,7 @@
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from ansible.module_utils.urls import CertificateError
-from ansible.module_utils.six.moves.urllib.parse import urlencode, quote_plus
+from ansible.module_utils.six.moves.urllib.parse import urlencode, quote_plus, quote
 from ansible.module_utils.connection import ConnectionError
 from ansible.module_utils.six.moves.urllib.error import HTTPError
 from ansible.module_utils.connection import Connection
@@ -157,3 +157,69 @@ class SpaceRequest(object):
         
         return response["job"]["job-state"]
 
+
+class SDAddressMgr(object):
+    def __init__(self, module):
+        self.space_request = SpaceRequest(
+        module,
+    )
+
+    def get_address_by_id(self, id):
+        '''
+        Querries SD API and returns single element list with one address or None
+        '''
+        self.space_request.headers = {"Accept": "application/vnd.juniper.sd.address-management.address+json;version=1;q=0.01"}
+        code, response =  self.space_request.get_by_path(
+            "/api/juniper/sd/address-management/addresses/{0}".format(id),
+            status_codes="200,404"
+        )
+
+        if code == 200:
+            return self._return_list(response)
+        elif 404:
+            return None
+
+    def get_addresses(self, name=None, ip_address=None):
+        '''
+        Querries Space API and returns list of any addresses matching filter(s) or None
+        '''
+        query_strs = []
+        self.space_request.headers = {"Accept": "application/vnd.juniper.sd.address-management.address-refs+json;version=1;q=0.01"}
+        if name:
+            query_strs.append(quote("name eq '{0}'".format(to_text(name))))
+
+        if ip_address: #FIXME: searching by IP currently broken
+            query_strs.append(quote("'ip-address' eq '{0}'".format(ip_address)))
+
+        if query_strs:
+            code, response = self.space_request.get_by_path(
+                "/api/juniper/sd/address-management/addresses?filter=({0})".format("%20and%20".join(query_strs))
+            )
+            return self._return_list(response['addresses'])
+        else:
+            code, response = self.space_request.get_by_path("/api/juniper/sd/address-management/addresses")
+            return self._return_list(response['addresses'])
+
+    def get_address(self, **kwargs):
+        '''
+        This address first querries by filter and then uses first address in the list to querry by ID.
+        The /api/space/address-management/addresses/<id> endpoint provides greater detail thann simply querrying by filter
+        '''
+        address_list = self.get_addresses(**kwargs)
+        if address_list:
+            return self.get_address_by_id(address_list[0]['id'])
+        else:
+            return address_list
+    
+    def _return_list(self, addresses):
+        try:
+            if not isinstance(addresses['address'], list):
+                addresses = [addresses['address']]
+                return addresses
+        except KeyError:
+            return None #no addresses exist
+        
+        if len(addresses['address']) == 0:
+            return None
+        else:
+            return addresses['address']
