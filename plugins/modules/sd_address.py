@@ -42,7 +42,6 @@ options:
       - IP version of address object
     required: false
     type: str
-
   type:
     description:
       - Type of address object
@@ -71,7 +70,6 @@ from ansible_collections.juniper.space.plugins.module_utils.space import SpaceRe
 import copy
 import json
 
-#### ADD CHANGE functionality
 
 def main():
 
@@ -103,36 +101,30 @@ def main():
         module.fail_json(msg='You must provide either an id or a name')
     
     if to_text(module.params["state"]) == "present":
-        if address:
-            #FIXME: Add logic for changing an existing address
-            module.exit_json(msg='Address already present', address=address[0], changed=False)
         #check params
-        else:
-            if not module.params["name"]:
-                module.fail_json(msg='You must provide a name')
-            elif not module.params["ip_address"] and not module.params["type"] == "group": #only require IP addres if this isn't a group
-                module.fail_json(msg='You must provide an IP address')
-            
-            if module.params["type"] == "group" and module.params["members"] is None:
-                module.fail_json(msg='You must provide at least one member if the address type is GROUP')
+        if not module.params["name"]:
+            module.fail_json(msg='You must provide a name')
+        elif not module.params["ip_address"] and not module.params["type"] == "group": #only require IP addres if this isn't a group
+            module.fail_json(msg='You must provide an IP address')
         
+        if module.params["type"] == "group" and module.params["members"] is None:
+            module.fail_json(msg='You must provide at least one member if the address type is GROUP')
+        
+    
         # Create the address
         space_request.headers = {
             "Accept": "application/json",
             "Content-Type": "application/json"
         }
-        body = {
-            "address": {
-                "definition_type": "CUSTOM",
-                "associated_metadata": "",
-                "name": "{}".format(module.params["name"]),
-                "description": "",
-                "address_type": "{}".format(module.params["type"].upper()),
-                "address_version": "{}".format(module.params["address_version"].upper()),
-                "host_name": "",
-                "ip_address": "{}".format(module.params["ip_address"])
-            }  
-        }
+        body = dict(address=dict())
+        body["address"]["definition_type"] = "CUSTOM"
+        body["address"]["associated_metadata"] = ""
+        body["address"]["name"] = module.params["name"]
+        body["address"]["description"] = ""
+        body["address"]["address_type"] = module.params["type"].upper()
+        body["address"]["address_version"] = module.params["address_version"].upper()
+        body["address"]["host_name"] =  ""
+        body["address"]["ip_address"] = module.params["ip_address"]
 
         if module.params["type"] == "group":
             address_refs = []
@@ -143,6 +135,22 @@ def main():
                 else:
                     module.fail_json(msg="Could not find member with name: {}".format(member))
             body['address']['address_refs'] = address_refs
+
+        if address:
+            #FIXME: Add logic for changing an existing address
+            # add edit_version
+            # Evaluate if any fields need to be updated
+            if address[0]["address-type"] == "IPADDRESS" and address[0]["ip-address"] != body["address"]["ip_address"]:
+                pass # update body with edit-version and set method to PUT
+
+            elif address[0]["address-type"] == "GROUP":
+                for member in body["address"]["address_refs"]:
+                    if not any(d["uuid"] == member["uuid"] for d in a):
+                        pass # update body with edit-version and set method to PUT
+            
+            module.exit_json(msg='Address already present', address=address[0], changed=False)        
+
+
 
         code, response = space_request.post("/api/juniper/sd/address-management/v5/address", payload=json.dumps(body))
         
