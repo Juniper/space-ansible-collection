@@ -10,7 +10,7 @@ __metaclass__ = type
 
 
 ANSIBLE_METADATA = {
-    "metadata_version": "0.1",
+    "metadata_version": "1.1",
     "status": ["preview"],
     "supported_by": "community",
 }
@@ -81,8 +81,6 @@ from ansible_collections.juniper.space.plugins.module_utils.space_device_lib imp
 import copy
 import json
 
-#### ADD CHANGE functionality
-
 def main():
 
     argspec = dict(
@@ -111,7 +109,7 @@ def main():
         device = space_device_manager.get_device_by_id(module.params["id"])
     elif module.params["ip_address"]:
         #FIXME: Use get_device instead so we get full device details when we implment changing existing device
-        device = space_device_manager.get_devices(ip_address=module.params["ip_address"])
+        device = space_device_manager.get_device(ip_address=module.params["ip_address"])
     else:
         module.fail_json(msg='You must provide either an id or ip_address')
     

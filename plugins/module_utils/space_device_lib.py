@@ -80,6 +80,8 @@ class SpaceDeviceMgr(object):
         device_list = self.get_devices(**kwargs)
         if len(device_list) > 0:
             return self.get_device_by_id(device_list[0]['device-id'])
+        else:
+            return None #no devices exist
     
     def _return_list(self, devices):
         try:

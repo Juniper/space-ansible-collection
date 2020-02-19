@@ -10,7 +10,7 @@ __metaclass__ = type
 
 
 ANSIBLE_METADATA = {
-    "metadata_version": "0.1",
+    "metadata_version": "1.1",
     "status": ["preview"],
     "supported_by": "community",
 }
@@ -110,36 +110,58 @@ def main():
         if module.params["type"] == "group" and module.params["members"] is None:
             module.fail_json(msg='You must provide at least one member if the address type is GROUP')
         
-    
-        # Create the address
         space_request.headers = {
             "Accept": "application/json",
             "Content-Type": "application/json"
         }
-        body = dict(address=dict())
-        body["address"]["definition_type"] = "CUSTOM"
-        body["address"]["associated_metadata"] = ""
-        body["address"]["name"] = module.params["name"]
-        body["address"]["description"] = ""
-        body["address"]["address_type"] = module.params["type"].upper()
-        body["address"]["address_version"] = module.params["address_version"].upper()
-        body["address"]["host_name"] =  ""
-        body["address"]["ip_address"] = module.params["ip_address"]
 
+        # Create the address body
+        body = dict(address = {
+            "definition_type" : "CUSTOM",
+            "associated_metadata" : "",
+            "name" : module.params["name"],
+            "description" : "",
+            "address_type" : module.params["type"].upper(),
+            "address_version" : module.params["address_version"].upper(),
+            "host_name" : ""}
+        )
+
+        # Add member-refs if necessary
         if module.params["type"] == "group":
             address_refs = []
             for member in module.params["members"]:
                 response = sd_address_manager.get_address(name=member)
                 if response is not None:
-                    address_refs.append(dict(name=response[0]['name'], uuid=response[0]['id']))
+                    # address_refs.append(dict(name=response[0]['name'], uuid=response[0]['uuid']))
+                    response[0].pop('uri', None)
+                    address_refs.append(response[0])
                 else:
                     module.fail_json(msg="Could not find member with name: {}".format(member))
             body['address']['address_refs'] = address_refs
+        else:
+            # only set ip_address key if this isn't a group
+            body['address']['ip_address'] = module.params["ip_address"]
 
+        # Logic for changing an existing address
         if address:
-            #FIXME: Add logic for changing an existing address
-            # add edit_version
-            # Evaluate if any fields need to be updated
+            # make a copy 
+            patch_address = dict(address=address[0].copy())
+
+            #update the patch with the prepared body
+            patch_address['address'].update(body['address'])
+
+            #compare for differences
+            if address[0] == patch_address['address']:
+                module.exit_json(msg='Address already up to date', address=address[0], changed=False)
+            else:
+                code, response = space_request.put(
+                    "/api/juniper/sd/address-management/v5/address/{0}".format(address[0]["uuid"]),
+                    payload=json.dumps(patch_address)
+                    )
+
+                module.exit_json(msg='Address updated', address=response['address'], changed=True)
+            
+
             if address[0]["address-type"] == "IPADDRESS" and address[0]["ip-address"] != body["address"]["ip_address"]:
                 pass # update body with edit-version and set method to PUT
 
@@ -150,12 +172,9 @@ def main():
             
             module.exit_json(msg='Address already present', address=address[0], changed=False)        
 
-
-
         code, response = space_request.post("/api/juniper/sd/address-management/v5/address", payload=json.dumps(body))
-        
-        address = sd_address_manager.get_address_by_id(id=response['address']['uuid'])
-        module.exit_json(address=address, changed=True)
+
+        module.exit_json(address=response['address'], changed=True)
 
     elif module.params["state"] == "absent":
         if not address:
@@ -165,7 +184,7 @@ def main():
             space_request.expect_json = False
 
             code, response =  space_request.delete(
-                "/api/juniper/sd/address-management/addresses/{0}".format(address[0]["id"]),
+                "/api/juniper/sd/address-management/addresses/{0}".format(address[0]["uuid"]),
                 status_codes="204, 500"
             )
 

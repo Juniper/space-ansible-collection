@@ -168,9 +168,9 @@ class SDAddressMgr(object):
         '''
         Querries SD API and returns single element list with one address or None
         '''
-        self.space_request.headers = {"Accept": "application/vnd.juniper.sd.address-management.address+json;version=1;q=0.01"}
+        self.space_request.headers = {"Accept": "application/json"}
         code, response =  self.space_request.get_by_path(
-            "/api/juniper/sd/address-management/addresses/{0}".format(id),
+            "/api/juniper/sd/address-management/v5/address/{0}".format(id),
             status_codes="200,404"
         )
 
@@ -184,30 +184,30 @@ class SDAddressMgr(object):
         Querries Space API and returns list of any addresses matching filter(s) or None
         '''
         query_strs = []
-        self.space_request.headers = {"Accept": "application/vnd.juniper.sd.address-management.address-refs+json;version=1;q=0.01"}
+        self.space_request.headers = {"Accept": "application/json"}
         if name:
-            query_strs.append(quote("name eq '{0}'".format(to_text(name))))
+            query_strs.append(quote("name contains '{0}'".format(to_text(name))))
 
-        if ip_address: #FIXME: searching by IP currently broken
-            query_strs.append(quote("'ip-address' eq '{0}'".format(ip_address)))
+        if ip_address:
+            query_strs.append(quote("ip_address contains '{0}'".format(ip_address)))
 
         if query_strs:
             code, response = self.space_request.get_by_path(
-                "/api/juniper/sd/address-management/addresses?filter=({0})".format("%20and%20".join(query_strs))
+                "/api/juniper/sd/address-management/v5/address?filter=({0})".format("%20and%20".join(query_strs))
             )
             return self._return_list(response['addresses'])
         else:
-            code, response = self.space_request.get_by_path("/api/juniper/sd/address-management/addresses")
+            code, response = self.space_request.get_by_path("/api/juniper/sd/address-management/v5/address")
             return self._return_list(response['addresses'])
 
     def get_address(self, **kwargs):
         '''
         This address first querries by filter and then uses first address in the list to querry by ID.
-        The /api/space/address-management/addresses/<id> endpoint provides greater detail thann simply querrying by filter
+        The /api/space/address-management/v5/address/<id> endpoint provides greater detail thann simply querrying by filter
         '''
         address_list = self.get_addresses(**kwargs)
         if address_list:
-            return self.get_address_by_id(address_list[0]['id'])
+            return self.get_address_by_id(address_list[0]['uuid'])
         else:
             return address_list
     
