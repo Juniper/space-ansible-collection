@@ -108,7 +108,6 @@ def main():
     if module.params["id"]:
         device = space_device_manager.get_device_by_id(module.params["id"])
     elif module.params["ip_address"]:
-        #FIXME: Use get_device instead so we get full device details when we implment changing existing device
         device = space_device_manager.get_device(ip_address=module.params["ip_address"])
     else:
         module.fail_json(msg='You must provide either an id or ip_address')
