@@ -114,7 +114,7 @@ class HttpApi(HttpApiBase):
             info.update(temp_headers)
 
 
-        cookie = info.get('Set-Cookie')
+        cookie = info.get('set-cookie')
         if cookie:
             return {'Cookie': cookie}
 

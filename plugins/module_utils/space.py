@@ -14,23 +14,6 @@ from time import sleep
 
 import json
 
-def find_dict_in_list(some_list, key, value):
-    text_type = False
-    try:
-        to_text(value)
-        text_type = True
-    except TypeError:
-        pass
-    for some_dict in some_list:
-        if key in some_dict:
-            if text_type:
-                if to_text(some_dict[key]).strip() == to_text(value).strip():
-                    return some_dict, some_list.index(some_dict)
-            else:
-                if some_dict[key] == value:
-                    return some_dict, some_list.index(some_dict)
-    return None
-
 class SpaceRequest(object):
     def __init__(self, module, headers=None):
 
@@ -223,3 +206,149 @@ class SDAddressMgr(object):
             return None
         else:
             return addresses['address']
+
+class ObjectConfig(object):
+    uris = None
+    headers = None
+    filters = None
+    list_keys = None
+    filter_operator = None
+    formatter = None
+
+class ObjectManager(object):
+    def __init__(self, module=None, config=None, **kwargs):
+        '''Base class for which all future modules will use
+
+        Args:
+            module (obj): Ansible module used to create the SpaceRequest instance
+            uri (dict): Dictionary of URIs used by each class method.
+                Should include keys matching method name (ie. get_by_id, get)
+            headers (dict): Dictionary of headers used by each class method.
+                Should include keys matching method name (ie. get_by_id, get)
+            filters (list): List of accepted filter names for these endpoints.
+                Filter names should match actual filter names expected by the endpoints
+                in both case and spelling.
+            list_key (list): List of two strings containing the keynames we expect to see
+                in the response body. Device example: "devices" & "device"
+            formatter (dict): If a key exists matching the method name then _formatter() is called
+        '''
+        self.space_request = SpaceRequest(module)
+        self.config = config
+        self.update_from_config()
+        
+    def update_from_config(self):
+        self.uris = self.config.uris or {}
+        self.headers = self.config.headers or {}
+        self.filters = self.config.filters or []
+        self.filter_operator = self.config.filter_operator or "contains"
+        self.list_keys = self.config.list_keys or None
+        self.formatter = self.config.formatter or {}
+         
+    def get_by_id(self, id, **kwargs):
+        '''
+        Returns single element list with one entry or None
+        '''
+        self.space_request.headers = self.headers['get_by_id']
+        path = self._formatter(name='get', path=self.uris['get'], **kwargs)
+        code, response =  self.space_request.get_by_path(
+            "{0}/{1}".format(path, id),
+            status_codes="200,404"
+        )
+
+        if code == 200:
+            return self._return_list(response)
+        elif 404:
+            return None
+
+    def get_all(self, **kwargs):
+        '''
+        Returns list of any objects matching the supplied filter(s) or None.
+        '''
+        path = self._formatter(name='get', path=self.uris['get'], **kwargs)
+
+        query_strs = self._prepare_filters(**kwargs)
+
+        self.space_request.headers = self.headers['get']
+
+        if query_strs:
+            code, response = self.space_request.get_by_path(
+                "{0}?filter=({1})".format(path, "%20and%20".join(query_strs))
+            )
+            return self._return_list(response[self.list_keys[0]])
+        else:
+            code, response = self.space_request.get_by_path(path)
+            return self._return_list(response)
+
+    def get(self, **kwargs):
+        '''
+        This address first querries by filter and then uses first address in the list to querry by ID.
+        Usually the API endpoint used by get_all() does not return a verbose body like the get_by_id() endpoint.
+        '''
+        address_list = self.get_all(**kwargs)
+        if address_list:
+            return self.get_by_id(address_list[0]['id'])
+        else:
+            return address_list
+    
+    def delete(self, id):
+        pass
+    
+    def _prepare_filters(self, **kwargs):
+        if not self.filters:
+            return None
+            
+        query_strs = []
+
+        for filter, value in kwargs.items():
+            if filter in self.filters:
+                query_strs.append(quote("{0} {1} '{2}'".format(filter, self.filter_operator, value)))
+        
+        if len(query_strs) > 0:
+            return query_strs
+        else:
+            return None
+        
+    def _return_list(self, items):
+        '''
+        self.list_keys[0]: This should be the plural form expected in the response body
+        self.list_keys[1]: This should be the singular form expected in the response body
+
+        Example:
+
+         "policies" : {
+            "policy" : [ {
+            "created-by-user-name" : "String",
+            "last-modified-time" : "Date",
+            "version" : "Integ
+            ....
+        
+        In this example self.list_keys[0] would be "policies" and self.list_keys[1] would be "policy"
+        '''
+
+        # just return the list if no keys provided        
+        if not self.list_keys:
+            return items
+
+        try:
+            items = items[self.list_keys[0]][self.list_keys[1]]
+            return items
+        except KeyError:
+            for key in self.list_keys:
+                if key in items.keys():
+                    return items[key]
+
+            return None #no items exist
+        
+        if not isinstance(items, list):
+            items = [items]
+        
+        if len(items) == 0:
+            return None
+
+        return items
+
+    def _formatter(self, name=None, path=None, **kwargs):
+        if self.formatter.get(name, None):
+            return path.format(**kwargs)
+        else:
+            return path
