@@ -16,20 +16,20 @@ ANSIBLE_METADATA = {
 }
 DOCUMENTATION = """
 ---
-module: sd_address_info
-short_description: Obtain information about one or many Security Director NAT Policies, with filter options
+module: sd_service_info
+short_description: Obtain information about one or many Security Director Service Objects, with filter options
 description:
-  - This module obtains information about one or many Security Director NAT Policies, with filter options
+  - This module obtains information about one or many Security Director Service Objects, with filter options
 version_added: "2.9"
 options:
   id:
     description:
-      - Obtain only information of the NAT Policy with provided ID
+      - Obtain only information of the Service Object with provided ID
     required: false
     type: int
   name:
     description:
-      - Obtain only information of the NAT Policy that matches the provided name
+      - Obtain only information of the Service Object that matches the provided name
     required: false
     type: str
 
@@ -48,7 +48,7 @@ EXAMPLES = """
 """
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.juniper.space.plugins.module_utils.sd_nat_policy_lib import SDNatPolicyMgr
+from ansible_collections.juniper.space.plugins.module_utils.sd_service_lib import SDServiceMgr
 import copy
 import json
 
@@ -62,25 +62,25 @@ def main():
 
     module = AnsibleModule(argument_spec=argspec, supports_check_mode=True)
 
-    mgr = SDNatPolicyMgr(
+    mgr = SDServiceMgr(
         module=module
     )
 
     if module.params["id"]:
-        policies = mgr.get_by_id(module.params["id"])
-        module.exit_json(policies=policies, changed=False)
+        services = mgr.get_by_id(module.params["id"])
+        module.exit_json(services=services, changed=False)
     else:
         if module.params["name"] or module.params["ip_address"]:
             # call get_address for greater detail and single element list
-            policies = mgr.get_all(
+            services = mgr.get_all(
                 name=module.params["name"],
                 ip_address=module.params["ip_address"]
             )
         else:
-            # call general get_policies which will return full list only if no filters are provided
-            policies = mgr.get_all()
+            # call general get_services which will return full list only if no filters are provided
+            services = mgr.get_all()
 
-    module.exit_json(policies=policies, changed=False)
+    module.exit_json(services=services, changed=False)
 
 if __name__ == "__main__":
     main()
