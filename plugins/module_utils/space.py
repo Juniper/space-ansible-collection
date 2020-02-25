@@ -335,7 +335,7 @@ class ObjectManager(object):
         except KeyError:
             for key in self.list_keys:
                 if key in items.keys():
-                    return items[key]
+                    return [items[key]]
 
             return None #no items exist
         
