@@ -77,10 +77,10 @@ def main():
             type='str',
             required=False,
         ),
-        # is_group=dict(
-        #     type='bool',
-        #     default=False
-        # ),
+        is_group=dict(
+            type='bool',
+            default=False
+        ),
         definition_type=dict(
             type='str',
             default='CUSTOM'
@@ -122,7 +122,7 @@ def main():
                     required=False
                 ),
                 disable_timeout=dict(
-                    type='bool',        #FIXME: test this.Does disable_timeout=True require parameter ename_timeout=False to exist?
+                    type='bool',
                     default=False,
                 ),
                 inactivity_timeout=dict(
@@ -143,7 +143,6 @@ def main():
 
     module = AnsibleModule(argument_spec=argspec, supports_check_mode=True)
 
-    module.params['is_group'] = False
     service_list = dict(
         application_services='application-services',
         is_group='is-group'
@@ -181,7 +180,7 @@ def main():
             module.fail_json(msg='You must provide a name')
 
         #only require protocols suboptions if this isn't a group
-        if not module.params["is-group"] and not module.params["protocols"]:
+        if module.params["is-group"] == False and not module.params["protocols"]:
             module.fail_json(msg='You must provide one or more protocols')
         
         if module.params["is-group"] and module.params["members"] is None:
