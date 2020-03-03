@@ -11,6 +11,7 @@ from ansible.module_utils.six.moves.urllib.error import HTTPError
 from ansible.module_utils.connection import Connection
 from ansible.module_utils._text import to_text
 from time import sleep
+from copy import deepcopy
 
 import json
 
@@ -21,12 +22,12 @@ class SpaceRequest(object):
         self.connection = Connection(self.module._socket_path)
         self.headers = headers
 
-    def _httpapi_error_handle(self, method, uri, payload=None, **kwargs):
+    def _httpapi_error_handle(self, method, uri, payload=None, basic_auth=False, **kwargs):
         # FIXME - make use of handle_httperror(self, exception) where applicable
         #   https://docs.ansible.com/ansible/latest/network/dev_guide/developing_plugins_network.html#developing-plugins-httpapi
         try:
             code, response = self.connection.send_request(
-                method, uri, payload=payload, headers=self.headers
+                method, uri, payload=payload, headers=self.headers, basic_auth=basic_auth
             )
         except ConnectionError as e:
             self.module.fail_json(msg="connection error occurred: {0}".format(e))
@@ -193,7 +194,7 @@ class SDAddressMgr(object):
             return self.get_address_by_id(address_list[0]['uuid'])
         else:
             return address_list
-    
+
     def _return_list(self, addresses):
         try:
             if not isinstance(addresses['address'], list):
@@ -248,49 +249,111 @@ class ObjectManager(object):
         '''
         Returns single element list with one entry or None
         '''
-        self.space_request.headers = self.headers['get_by_id']
-        path = self._formatter(name='get', path=self.uris['get'], **kwargs)
+        _name = 'get_by_id'
+        self.space_request.headers = self.headers[_name]
+        path = self._formatter(_name=_name, path=self.uris[_name], **kwargs)
         code, response =  self.space_request.get_by_path(
             "{0}/{1}".format(path, id),
             status_codes="200,404"
         )
 
         if code == 200:
-            return self._return_list(response)
+            items = self._return_list(response)
+
+            # because SD sometimes returns 200 for objects that don't exist...
+            id = items[0].get('uuid') or items[0].get('id')
+            if id:
+                return items
+            else:
+                return None
         elif 404:
             return None
 
-    def get_all(self, **kwargs):
+    def get(self, **kwargs):
         '''
         Returns list of any objects matching the supplied filter(s) or None.
         '''
-        path = self._formatter(name='get', path=self.uris['get'], **kwargs)
+        _name = 'get'
+        path = self._formatter(_name=_name, path=self.uris[_name], **kwargs)
 
         query_strs = self._prepare_filters(**kwargs)
 
-        self.space_request.headers = self.headers['get']
+        self.space_request.headers = self.headers[_name]
 
         if query_strs:
             code, response = self.space_request.get_by_path(
                 "{0}?filter=({1})".format(path, "%20and%20".join(query_strs))
             )
-            return self._return_list(response[self.list_keys[0]])
+            return self._return_list(response)
         else:
             code, response = self.space_request.get_by_path(path)
             return self._return_list(response)
 
-    def get(self, **kwargs):
+    def get_one(self, **kwargs):
         '''
         This address first querries by filter and then uses first address in the list to querry by ID.
         Usually the API endpoint used by get_all() does not return a verbose body like the get_by_id() endpoint.
         '''
-        address_list = self.get_all(**kwargs)
-        if address_list:
-            return self.get_by_id(address_list[0]['id'])
-        else:
-            return address_list
+        items = self.get(**kwargs)
+        if items:
+            id = items[0].get('uuid') or items[0].get('id')
+            if id:
+                return self.get_by_id(id)
+            else:
+                return None
+
+        return items
     
-    def delete(self, id):
+    def delete(self, id, **kwargs):
+        '''
+        Deletes the requeste resource with the supplied ID.
+        Returns True if the delete is successful; otherwise returns False.
+        Also returns error message if delete is unsuccessful.
+        '''
+        _name = 'delete'
+        self.space_request.expect_json = False
+        path = self._formatter(name=_name, path=self.uris[_name], **kwargs)
+
+        code, response =  self.space_request.delete(
+            "{0}/{1}".format(path, id),
+            status_codes="204, 500"
+        )
+
+        if code == 204:
+            return True, None
+        elif code == 500:
+            return False, response
+        else:
+            module.fail_json(msg='Something went wrong deleting the object.')
+        
+        
+
+        self.space_request.expect_json = True
+
+    def create(self, body, **kwargs):
+        _name = 'create'
+        path = self._formatter(name=_name, path=self.uris[_name], **kwargs)
+        self.space_request.headers = self.headers[_name]
+
+        # return body #DEBUG
+
+        code, response = self.space_request.post(path, payload=json.dumps(body))
+
+        return response[self.list_keys[1]]
+
+    def update(self, id, body, **kwargs):
+        _name = 'update'
+        path = self._formatter(name=_name, path=self.uris[_name], **kwargs)
+        self.space_request.headers = self.headers[_name]
+        code, response = self.space_request.put(
+            "{0}/{1}".format(path, id),
+            payload=json.dumps(body)
+        )
+
+        return response[self.list_keys[1]]
+        
+    
+    def _body_builder(self, **kwargs):
         pass
     
     def _prepare_filters(self, **kwargs):
@@ -326,18 +389,19 @@ class ObjectManager(object):
         '''
 
         # just return the list if no keys provided        
+
         if not self.list_keys:
             return items
 
         try:
             items = items[self.list_keys[0]][self.list_keys[1]]
-            return items
+            #return items
         except KeyError:
             for key in self.list_keys:
                 if key in items.keys():
                     return [items[key]]
 
-            return None #no items exist
+            return None #no items exist #FIXME: can we rely on final return items?
         
         if not isinstance(items, list):
             items = [items]
@@ -347,8 +411,105 @@ class ObjectManager(object):
 
         return items
 
-    def _formatter(self, name=None, path=None, **kwargs):
-        if self.formatter.get(name, None):
+    def _formatter(self, _name=None, path=None, **kwargs):
+        if self.formatter.get(_name, None):
             return path.format(**kwargs)
         else:
             return path
+    
+    def _marshal(self, data=None, conversion_list=None):
+        for k in data.keys():
+            if k in conversion_list:
+                data[conversion_list[k]] = data.pop(k)
+        return data
+
+    def _update_list(self, list1, list2, key):
+        '''
+        This function does 4 things:
+        1) Removes any list entries in list1 which do not have a matching key in list2
+        2) Updates (dict.update() any list entries in list1 which match key in list2
+        3) Appends any list entries in list2 which do not have an existing match in list1
+        4) Returns the new, updated list.
+
+        Why? Because if a list is nested as a dictionary value then update() overrites the entire list 
+        when we merge the the list entries are overwritten and we can't check to see if any of the 
+        nested dictionaries in the list actually changed. Therefore, we loop through each list, element by element
+        and update using the provided 'key' parameter as a unique identifier.
+
+        Note: If this isn't working as expected did you use copy.deepcopy() to create your new list?
+        Example:
+
+        list1 = [
+            {
+                "name": "http",
+                "port": "80",
+                "protocol": "tcp"
+            },
+            {
+                "name": "https",
+                "port": "443",
+                "protocol": "udp",
+                "description": "Encryption is good"
+            }
+        ]
+
+        list2 = [
+            {
+                "name": "https",
+                "port": "443",
+                "protocol": "tcp"
+            },
+            {
+                "name": "web-dev",
+                "port": "8080",
+                "protocol": "tcp"
+            }
+        ]
+
+        _update_list(list1, list2, 'name')
+        returns [
+            {
+                "name": "https",
+                "port": "443",
+                "protocol": "tcp",
+                "description": "Encryption is good"
+
+            },
+            {
+                "name": "web-dev",
+                "port": "8080",
+                "protocol": "tcp"
+            }
+        ]
+
+
+        '''
+
+        list1 = deepcopy(list1)
+        list2 = deepcopy(list2)
+
+        # build our element index from new element list
+        key_index = {}
+        for idx, element in enumerate(list2):
+            key_index[element['name']] = idx
+        
+        # pop existing elements which are not found in the new list
+        for idx, element in enumerate(list1):
+            if element['name'] not in key_index:
+                list1.pop(idx)
+        
+        #now we have patch_body which only contains elements which need to possibly be updated
+        # build our element index from trimmed existing element list
+        key_index = {}
+        for idx, element in enumerate(list1):
+            key_index[element['name']] = idx
+        
+        for element in list2:
+            # if protocl name exists in the current body, update it
+            if element['name'] in key_index:
+                list1[key_index[element['name']]].update(element)
+            #otherwise append element
+            else:
+                list1.append(element)
+        
+        return list1

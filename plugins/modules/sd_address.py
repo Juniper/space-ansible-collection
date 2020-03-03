@@ -161,32 +161,12 @@ def main():
 
                 module.exit_json(msg='Address updated', address=response['address'], changed=True)
             
-
-            if address[0]["address-type"] == "IPADDRESS" and address[0]["ip-address"] != body["address"]["ip_address"]:
-                pass # update body with edit-version and set method to PUT
-
-            elif address[0]["address-type"] == "GROUP":
+            if address[0]["address-type"] == "GROUP":
                 for member in body["address"]["address_refs"]:
                     if not any(d["uuid"] == member["uuid"] for d in a):
                         pass # update body with edit-version and set method to PUT
             
             module.exit_json(msg='Address already present', address=address[0], changed=False)        
-
-        if address:
-            #FIXME: Add logic for changing an existing address
-            # add edit_version
-            # Evaluate if any fields need to be updated
-            if address[0]["address-type"] == "IPADDRESS" and address[0]["ip-address"] != body["address"]["ip_address"]:
-                pass # update body with edit-version and set method to PUT
-
-            elif address[0]["address-type"] == "GROUP":
-                for member in body["address"]["address_refs"]:
-                    if not any(d["uuid"] == member["uuid"] for d in a):
-                        pass # update body with edit-version and set method to PUT
-            
-            module.exit_json(msg='Address already present', address=address[0], changed=False)        
-
-
 
         code, response = space_request.post("/api/juniper/sd/address-management/v5/address", payload=json.dumps(body))
 

@@ -57,9 +57,13 @@ class HttpApi(HttpApiBase):
             )
         else:
             raise ConnectionError('Username and password are required for login')
-    
-    def send_request(self, request_method, path, payload=None, headers=None, **kwargs):
+
+    def send_request(self, request_method, path, payload=None, headers=None, basic_auth=False, **kwargs):
         headers = headers if headers else BASE_HEADERS
+        # space platform API endpoints which are asyncrhonous require basic_auth and no JSESSIONID cookies set.
+        if basic_auth:
+            import q; q('ASDFASDFASDF: CLEARING AUTH TOKENS')
+            self.connection._auth = None
 
         try:
             self._display_request(request_method)

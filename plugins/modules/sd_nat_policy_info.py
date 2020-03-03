@@ -71,14 +71,14 @@ def main():
         module.exit_json(policies=policies, changed=False)
     else:
         if module.params["name"] or module.params["ip_address"]:
-            # call get_address for greater detail and single element list
-            policies = mgr.get_all(
+            # call get_one for greater detail and single element list
+            policies = mgr.get_one(
                 name=module.params["name"],
                 ip_address=module.params["ip_address"]
             )
         else:
-            # call general get_policies which will return full list only if no filters are provided
-            policies = mgr.get_all()
+            # call general get which will return full list only if no filters are provided
+            policies = mgr.get()
 
     module.exit_json(policies=policies, changed=False)
 

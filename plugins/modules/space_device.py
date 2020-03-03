@@ -147,7 +147,10 @@ def main():
             body['systemDiscoveryRule']['snmpV2CSetting'] = { "communityName":"{}".format(module.params["snmp_community"]) }
             body['systemDiscoveryRule']['useSnmp'] = "True"
 
-        code, response = space_request.post("/api/space/device-management/discover-devices", payload=json.dumps(body))
+        code, response = space_request.post("/api/space/device-management/discover-devices",
+            payload=json.dumps(body),
+            basic_auth=True
+        )
         
         task_id = response['task']['id']
         job_status = space_request.check_job(task_id=task_id)
@@ -165,10 +168,11 @@ def main():
         else:
             space_request.headers = {"Accept": "application/vnd.net.juniper.space.device-management.device+json;version=1"}
             space_request.expect_json = False
-
+            
             code, response =  space_request.delete(
                 "/api/space/device-management/devices/{0}".format(device[0]["device-id"]),
-                status_codes="202"
+                status_codes="202",
+                basic_auth=True
             )
             if code == 202:
                 module.exit_json(task_id=response['task']['id'], changed=True)
