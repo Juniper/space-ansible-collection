@@ -72,7 +72,7 @@ def main():
     if module.params["id"]:
         rules = mgr.get_by_id(module.params["id"], policy_id = module.params["policy_id"])
     else:
-        rules = mgr.get_all(policy_id = module.params["policy_id"])
+        rules = mgr.get(policy_id = module.params["policy_id"])
     
     module.exit_json(rules=rules, changed=False)
 
