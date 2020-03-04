@@ -131,10 +131,11 @@ class SpaceRequest(object):
             sleep(delay)
             code, response = self.get_by_path("/api/space/job-management/jobs/{}".format(task_id))
 
-            if response["job"]["job-state"] == "DONE":
-                return "DONE"
-            elif response["job"]["job-state"] == "FAILURE":
+            if response["job"].get("job-state") == "FAILURE" or response["job"].get("job-status") == "FAILURE":
                 return "FAILURE"
+
+            elif response["job"].get("job-state") == "DONE":
+                return "DONE"
             else:
                 self.module.log("Job is still running")
                 retries = retries - 1

@@ -157,9 +157,10 @@ def main():
 
         if job_status == "DONE":
             device = space_device_manager.get_devices(ip_address=module.params["ip_address"])
-            module.exit_json(device=device, task_id=task_id, job_status=job_status, changed=True)
-        else:
-            module.fail_json(task_id=task_id, job_status=job_status, changed=False)
+            if device:
+              module.exit_json(device=device, task_id=task_id, job_status=job_status, changed=True)
+
+        module.fail_json(task_id=task_id, job_status=job_status, changed=False, msg="The job finished with a FAILURE status")
 
 
     elif module.params["state"] == "absent":
