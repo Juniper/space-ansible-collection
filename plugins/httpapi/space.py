@@ -62,7 +62,6 @@ class HttpApi(HttpApiBase):
         headers = headers if headers else BASE_HEADERS
         # space platform API endpoints which are asyncrhonous require basic_auth and no JSESSIONID cookies set.
         if basic_auth:
-            import q; q('ASDFASDFASDF: CLEARING AUTH TOKENS')
             self.connection._auth = None
 
         try:
