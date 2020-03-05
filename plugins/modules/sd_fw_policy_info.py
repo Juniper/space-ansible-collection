@@ -16,20 +16,20 @@ ANSIBLE_METADATA = {
 }
 DOCUMENTATION = """
 ---
-module: sd_nat_policy_info
-short_description: Obtain information about one or many Security Director NAT Policies, with filter options
+module: sd_policy_info
+short_description: Obtain information about one or many Security Director FirewallPolicies, with filter options
 description:
-  - This module obtains information about one or many Security Director NAT Policies, with filter options
+  - This module obtains information about one or many Security Director FirewallPolicies, with filter options
 version_added: "2.9"
 options:
   id:
     description:
-      - Obtain only information of the NAT Policy with provided ID
+      - Obtain only information of the FirewallPolicy with provided ID
     required: false
     type: int
   name:
     description:
-      - Obtain only information of the NAT Policy that matches the provided name
+      - Obtain only information of the FirewallPolicy that matches the provided name
     required: false
     type: str
 
@@ -48,7 +48,7 @@ EXAMPLES = """
 """
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.juniper.space.plugins.module_utils.sd_nat_policy_lib import SDNatPolicyMgr
+from ansible_collections.juniper.space.plugins.module_utils.sd_fw_policy_lib import SDFWPolicyMgr
 import copy
 import json
 
@@ -57,12 +57,11 @@ def main():
     argspec = dict(
         id=dict(required=False, type="int"),
         name=dict(required=False, type="str"),
-        ip_address=dict(required=False, type="str")
     )
 
     module = AnsibleModule(argument_spec=argspec, supports_check_mode=True)
 
-    mgr = SDNatPolicyMgr(
+    mgr = SDFWPolicyMgr(
         module=module
     )
 
@@ -70,7 +69,7 @@ def main():
         policies = mgr.get_by_id(module.params["id"])
         module.exit_json(policies=policies, changed=False)
     else:
-        if module.params["name"] or module.params["ip_address"]:
+        if module.params["name"]:
             # call get_one for greater detail and single element list
             policies = mgr.get_one(
                 name=module.params["name"],

@@ -245,7 +245,7 @@ class ObjectManager(object):
         self.filter_operator = self.config.filter_operator or "contains"
         self.list_keys = self.config.list_keys or None
         self.formatter = self.config.formatter or {}
-         
+    
     def get_by_id(self, id, **kwargs):
         '''
         Returns single element list with one entry or None
@@ -255,7 +255,7 @@ class ObjectManager(object):
         path = self._formatter(_name=_name, path=self.uris[_name], **kwargs)
         code, response =  self.space_request.get_by_path(
             "{0}/{1}".format(path, id),
-            status_codes="200,404"
+            status_codes="200,404,500"
         )
 
         if code == 200:
@@ -267,7 +267,7 @@ class ObjectManager(object):
                 return items
             else:
                 return None
-        elif 404:
+        elif code == 404 or code == 500:
             return None
 
     def get(self, **kwargs):

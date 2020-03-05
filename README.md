@@ -15,9 +15,14 @@ This Collection is meant for distribution via
 * `space_device_info` - Obtain information about one or many space Rules, with filter options
 * `space_device` - This module allows for addition, deletion, or modification of devices in Junos Space
 * `space_queue` - Manage state of Space's HornetQ Queues
-* `sd_address_info` - Obtain information about one or many Security Director address objects, with filter options
-* `sd_address` - This module allows for addition, deletion, or modification of addresses in Security Director
+* `sd_address_info` - Obtain information about one or many SD address objects, with filter options
+* `sd_address` - This module allows for addition, deletion, or modification of addresses in SD
 * `sd_device_info` - Obtain information about one or many SD devices, with filter options
+* `sd_service_info` - Obtain information about one or many SD service objects, with filter options
+* `sd_service` - This module allows for addition, deletion, or modification of services in SD
+* `sd_nat_policy_info` - Obtain information about one or many SD NAT policies
+* `sd_nat_rule_info` - Obtain information for all SD NAT rules for a given policy ID or a specific rule given a rule ID
+* `sd_fw_policy_info` - Obtain information about one or many SD firewall policies
 
 ### Using Junos Space Ansible Collection
 
@@ -99,5 +104,8 @@ Below we use the [`block`](https://docs.ansible.com/ansible/latest/user_guide/pl
 
 ### Planned Modules
 
-* `sd_nat_policy*`
-* `sd_nat_rule*`
+* `sd_nat_policy`
+* `sd_nat_rule`
+* `sd_fw_policy`
+* `sd_fw_rule`
+* `space_keys*`

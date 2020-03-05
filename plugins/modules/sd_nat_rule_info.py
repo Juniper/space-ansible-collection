@@ -16,7 +16,7 @@ ANSIBLE_METADATA = {
 }
 DOCUMENTATION = """
 ---
-module: sd_address_info
+module: sd_nat_rule_info
 short_description: Obtain information about one or many Security Director NAT Rules, with filter options
 description:
   - This module obtains information about one or many Security Director NAT Rules, with filter options.
