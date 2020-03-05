@@ -78,8 +78,13 @@ class SpaceDeviceMgr(object):
         The /api/space/device-management/devices/<id> endpoint provides greater detail thann simply querrying by filter
         '''
         device_list = self.get_devices(**kwargs)
-        if len(device_list) > 0:
-            return self.get_device_by_id(device_list[0]['device-id'])
+
+        # device_list could already be None from '_return_list'. Make sure it's not None before continuing
+        if device_list:
+            if len(device_list) > 0:
+                return self.get_device_by_id(device_list[0]['device-id'])
+        else:
+            return None #no devices exist
     
     def _return_list(self, devices):
         try:
