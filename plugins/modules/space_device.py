@@ -57,6 +57,11 @@ options:
       - Name of HornetQ for 
     required: false
     type: str
+  timeout:
+    description:
+      - Timeout in seconds to wait for discovery job to complete. 
+    required: false
+    type: int
 
 author: "Juniper Networks Automation Team (https://github.com/juniper)
 """
@@ -92,7 +97,8 @@ def main():
         use_ping=dict(required=False, type="bool", default=True),
         use_snmp=dict(required=False, type="bool", default=False),
         snmp_community=dict(required=False, type="str"),
-        queue=dict(required=False, type="str")
+        queue=dict(required=False, type="str"),
+        timeout=dict(default=300, type="int")
     )
 
     module = AnsibleModule(argument_spec=argspec, supports_check_mode=True)
@@ -153,7 +159,8 @@ def main():
         )
         
         task_id = response['task']['id']
-        job_status = space_request.check_job(task_id=task_id)
+        retries = module.params["timeout"] / 10
+        job_status = space_request.check_job(task_id=task_id, retries=retries)
 
         if job_status == "DONE":
             device = space_device_manager.get_devices(ip_address=module.params["ip_address"])
