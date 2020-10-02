@@ -79,7 +79,7 @@ def main():
         name=dict(required=False, type="str"),
         ip_address=dict(required=False, type="str"),
         address_version=dict(required=False, choices=["ipv4", "ipv6"], type="str", default="ipv4"),
-        type=dict(required=False, choices=["ipaddress", "group"], type="str", default="ipaddress"),
+        type=dict(required=False, choices=["ipaddress", "group", "network", "range"], type="str", default="ipaddress"),
         members=dict(required=False, type="list", elements="str")
     )
 
